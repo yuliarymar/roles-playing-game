@@ -54,16 +54,9 @@ app.get('/health', (req, res) => {
 
 // === HTTP + SOCKET.IO ===
 const server = http.createServer(app);
-const io = new Server(server, {
+ const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:3000", 
-      "https://roles-playing-game.vercel.app",
-      "https://roles-playing-game-git-main-yuliarymar.vercel.app",
-      "https://roles-playing-game-*.vercel.app",
-      "*"
-    ],
+    origin: "*",  // ← ТІЛЬКИ ЦЕ
     methods: ["GET", "POST"],
     credentials: true
   },
