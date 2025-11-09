@@ -56,10 +56,11 @@ app.get('/health', (req, res) => {
 const server = http.createServer(app);
  const io = new Server(server, {
   cors: {
-    origin: "*",  // ← ТІЛЬКИ ЦЕ
+    origin: "*",           // ← ТІЛЬКИ *
     methods: ["GET", "POST"],
     credentials: true
   },
+  transports: ['websocket'], // ← ТІЛЬКИ WebSocket
   pingTimeout: 60000,
   pingInterval: 25000
 });
