@@ -2,14 +2,10 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-// === СТАТИЧНІ ФАЙЛИ ДЛЯ VERCEL ===
-app.use(express.static(path.join(__dirname, 'dist')));
 
 // === ОБОВ'ЯЗКОВО: обробка GET / (для Render та Vercel) ===
 app.get('/', (req, res) => {
@@ -28,6 +24,7 @@ app.get('/', (req, res) => {
         <div class="status">✅ Сервер працює!</div>
         <p>Socket.IO сервер для ролевої гри "Конфлікт у школі"</p>
         <p>Порт: ${process.env.PORT || 3001}</p>
+        <p>Готовий до прийому з'єднань від клієнта</p>
       </body>
     </html>
   `);
@@ -39,31 +36,8 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     rooms: Array.from(rooms.keys()),
-    activeConnections: io.engine.clientsCount
+    activeConnections: io.engine.clientsCount || 0
   });
-});
-
-// === SPA ROUTING FOR VERCEL ===
-app.get('*', (req, res) => {
-  if (req.path.startsWith('/api/') || req.path === '/health') {
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Roles Playing Game</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <h1>🎮 Roles Playing Game</h1>
-        <p>Клієнтська частина повинна бути окремо розгорнута на Vercel</p>
-        <p><a href="/">Перейти до сервера</a></p>
-      </body>
-    </html>
-  `);
 });
 
 // HTTP сервер
@@ -78,7 +52,7 @@ const io = new Server(server, {
       "https://roles-playing-game.vercel.app",
       "https://roles-playing-game-git-main-yuliarymar.vercel.app",
       "https://roles-playing-game-*.vercel.app",
-      "*" // Для тестування
+      "*"
     ],
     methods: ["GET", "POST"],
     credentials: true
@@ -146,7 +120,7 @@ const ROLES = [
   },
   {
     name: 'Мер міста',
-    emoji: '🏛️',
+    emoji: '🏙️',
     image: '⭐',
     description: 'Ти відповідаєш за громадський порядок і розвиток молоді.',
     fullDescription: 'Ти маєш балансувати між збереженням порядку та підтримкою розвитку молоді. Шукай рішення, яке покаже, що місто слухає молодих, але також дотримується законів.'
@@ -307,7 +281,7 @@ io.on('connection', (socket) => {
       players: Array.from(room.players.values()).map(p => ({
         id: p.id, nickname: p.nickname, roleType: p.roleType, role: p.role, isHost: p.isHost
       })),
-      messages: room.messages.slice(-50), // Останні 50 повідомлень
+      messages: room.messages.slice(-50),
       queue: room.queue,
       currentSpeaker: room.currentSpeaker,
       timeRemaining: room.timeRemaining,
@@ -341,7 +315,6 @@ io.on('connection', (socket) => {
           const role = shuffledRoles[index];
           player.role = role.name;
           
-          // Надсилаємо інформацію про роль гравцю
           io.to(player.socketId).emit('role-assigned', {
             role: role.name,
             emoji: role.emoji,
@@ -363,7 +336,6 @@ io.on('connection', (socket) => {
       room.rolesAssigned = true;
       room.phase = 'roles-assigned';
 
-      // Сповіщаємо всіх
       io.to(code).emit('roles-distributed');
       io.to(code).emit('game-phase-changed', 'roles-assigned');
       
@@ -422,7 +394,6 @@ io.on('connection', (socket) => {
         }
       }, 1000);
 
-      // Сповіщаємо всіх про початок гри
       const startMessage = {
         id: Date.now() + Math.random(),
         playerName: 'Система',
@@ -454,7 +425,6 @@ io.on('connection', (socket) => {
 
       if (!room.queue) room.queue = [];
       
-      // Перевіряємо, чи гравець вже в черзі
       if (!room.queue.some(p => p.id === player.id)) {
         room.queue.push({ 
           id: player.id, 
@@ -468,7 +438,6 @@ io.on('connection', (socket) => {
           currentSpeaker: room.currentSpeaker 
         });
 
-        // Якщо це перший у черзі і ніхто не говорить - починаємо
         if (room.queue.length === 1 && !room.currentSpeaker) {
           startNextSpeaker(code);
         }
@@ -533,16 +502,13 @@ io.on('connection', (socket) => {
       
       if (!room.messages) room.messages = [];
 
-      // Додаємо унікальний ID та timestamp
       if (!message.id) message.id = Date.now() + Math.random();
       if (!message.timestamp) message.timestamp = new Date().toLocaleTimeString();
 
-      // Перевіряємо на дублікати
       if (room.messages.some(m => m.id === message.id)) return;
 
       room.messages.push(message);
       
-      // Обмежуємо кількість повідомлень (останні 100)
       if (room.messages.length > 100) {
         room.messages = room.messages.slice(-100);
       }
@@ -578,7 +544,6 @@ io.on('connection', (socket) => {
     const speaker = room.queue[0];
     room.currentSpeaker = speaker;
 
-    // Запускаємо таймер виступу
     room.speechTimer = setTimeout(() => {
       finishCurrentSpeaker(code);
     }, SPEECH_TIME);
@@ -612,13 +577,11 @@ io.on('connection', (socket) => {
 
     const speaker = room.currentSpeaker;
     
-    // Очищуємо таймер
     if (room.speechTimer) {
       clearTimeout(room.speechTimer);
       room.speechTimer = null;
     }
 
-    // Видаляємо з черги
     if (room.queue) {
       room.queue = room.queue.filter(p => p.id !== speaker.id);
     }
@@ -642,7 +605,6 @@ io.on('connection', (socket) => {
     io.to(code).emit('chat-message', message);
     io.to(code).emit('speech-time-ended');
 
-    // Запускаємо наступного через 2 секунди
     if (room.queue?.length > 0) {
       setTimeout(() => startNextSpeaker(code), 2000);
     }
@@ -652,7 +614,6 @@ io.on('connection', (socket) => {
     const room = rooms.get(code);
     if (!room) return;
     
-    // Очищуємо всі таймери
     if (room.gameTimer) clearInterval(room.gameTimer);
     if (room.speechTimer) clearTimeout(room.speechTimer);
 
@@ -668,7 +629,6 @@ io.on('connection', (socket) => {
     io.to(code).emit('chat-message', message);
     io.to(code).emit('game-ended');
     
-    // Скидаємо стан гри
     room.gameStarted = false;
     room.phase = 'lobby';
     room.queue = [];
@@ -685,17 +645,14 @@ io.on('connection', (socket) => {
     const player = room.players.get(socketId);
     if (!player) return;
 
-    // Видаляємо з черги
     if (room.queue) {
       room.queue = room.queue.filter(p => p.id !== socketId);
     }
     
-    // Якщо гравець був поточним спікером - завершуємо виступ
     if (room.currentSpeaker?.id === socketId) {
       finishCurrentSpeaker(code);
     }
 
-    // Видаляємо гравця
     room.players.delete(socketId);
 
     const leaveMessage = {
@@ -708,14 +665,12 @@ io.on('connection', (socket) => {
     room.messages.push(leaveMessage);
     io.to(code).emit('chat-message', leaveMessage);
 
-    // Якщо кімната порожня - видаляємо її
     if (room.players.size === 0) {
       if (room.gameTimer) clearInterval(room.gameTimer);
       if (room.speechTimer) clearTimeout(room.speechTimer);
       rooms.delete(code);
       console.log(`🗑️ Кімната ${code} видалена (порожня)`);
     } else {
-      // Якщо вийшов господар - призначаємо нового
       if (player.isHost) {
         const newHost = Array.from(room.players.values())[0];
         newHost.isHost = true;
@@ -771,7 +726,6 @@ setInterval(() => {
   const HOUR = 60 * 60 * 1000;
   
   for (const [code, room] of rooms) {
-    // Видаляємо кімнати, які неактивні більше 3 годин
     if (now - room.createdAt > 3 * HOUR) {
       if (room.gameTimer) clearInterval(room.gameTimer);
       if (room.speechTimer) clearTimeout(room.speechTimer);
@@ -779,7 +733,7 @@ setInterval(() => {
       console.log(`🧹 Очищено стару кімнату: ${code}`);
     }
   }
-}, 60 * 60 * 1000); // Кожну годину
+}, 60 * 60 * 1000);
 
 // === ЗАПУСК СЕРВЕРА ===
 const PORT = process.env.PORT || 3001;
@@ -790,7 +744,6 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Готовий до роботи!`);
 });
 
-// === ОБРОБКА ПОМИЛОК ===
 process.on('uncaughtException', (error) => {
   console.error('❌ Непередбачена помилка:', error);
 });
