@@ -15,6 +15,10 @@ const io = new Server(server, {
 
 const rooms = new Map();
 
+// ТАЙМЕРИ ГРИ
+const GAME_DURATION = 30 * 60 * 1000; // 30 хвилин
+const SPEECH_TIME = 2 * 60 * 1000; // 2 хвилини
+
 // === 10 ОСНОВНИХ РОЛЕЙ ===
 const ROLES = [
   {
@@ -111,7 +115,14 @@ io.on('connection', (socket) => {
       phase: 'lobby',
       gameStarted: false,
       rolesAssigned: false,
-      maxPlayers: 20
+      maxPlayers: 20,
+      messages: [],
+      queue: [],
+      currentSpeaker: null,
+      speechTimer: null,
+      gameTimer: null,
+      gameStartTime: null,
+      timeRemaining: GAME_DURATION
     });
 
     const room = rooms.get(code);
@@ -211,10 +222,10 @@ io.on('connection', (socket) => {
     });
 
     room.rolesAssigned = true;
-    room.phase = 'waiting-for-start';
+    room.phase = 'roles-assigned';
     
     io.to(code).emit('roles-distributed');
-    io.to(code).emit('game-phase-changed', 'waiting-for-start');
+    io.to(code).emit('game-phase-changed', 'roles-assigned');
     updateRoomPlayers(code);
     
     console.log(`🎭 Ролі розподілені в кімнаті ${code}`);
@@ -230,12 +241,222 @@ io.on('connection', (socket) => {
     }
 
     room.gameStarted = true;
-    room.phase = 'discussion';
+    room.phase = 'game-started';
+    room.gameStartTime = Date.now();
+    room.timeRemaining = GAME_DURATION;
+    
+    // Запускаємо таймер гри
+    room.gameTimer = setInterval(() => {
+      room.timeRemaining -= 1000;
+      
+      // Надсилаємо оновлений час всім гравцям
+      io.to(code).emit('game-time-update', {
+        timeRemaining: room.timeRemaining,
+        minutes: Math.floor(room.timeRemaining / 60000),
+        seconds: Math.floor((room.timeRemaining % 60000) / 1000)
+      });
+      
+      // Перевіряємо чи час вийшов
+      if (room.timeRemaining <= 0) {
+        clearInterval(room.gameTimer);
+        endGame(code);
+      }
+    }, 1000);
+    
+    // Додаємо системне повідомлення про початок гри
+    const systemMessage = {
+      id: Date.now(),
+      playerName: 'Система',
+      message: `Гра розпочалася! У вас ${GAME_DURATION/60000} хвилин для обговорення. Представтесь та почніть обговорення.`,
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'system'
+    };
+    
+    if (!room.messages) {
+      room.messages = [];
+    }
+    room.messages.push(systemMessage);
+    
+    // Надсилаємо системне повідомлення всім
+    io.to(code).emit('chat-message', systemMessage);
     
     io.to(code).emit('game-started');
-    io.to(code).emit('game-phase-changed', 'discussion');
+    io.to(code).emit('game-phase-changed', 'game-started');
+    io.to(code).emit('game-time-update', {
+      timeRemaining: room.timeRemaining,
+      minutes: Math.floor(room.timeRemaining / 60000),
+      seconds: Math.floor((room.timeRemaining % 60000) / 1000)
+    });
     
     console.log(`🚀 Гра розпочата в кімнаті ${code}`);
+  });
+
+  // === СИСТЕМА ЧЕРГИ ТА ВИСТУПІВ ===
+  
+  // Підняття руки
+  socket.on('raise-hand', (code) => {
+    const room = rooms.get(code);
+    if (!room) return;
+
+    const player = room.players.get(socket.id);
+    if (!player) return;
+
+    console.log(`✋ ${player.nickname} підняв(ла) руку в кімнаті ${code}`);
+    
+    // Надсилаємо всім про підняття руки
+    io.to(code).emit('hand-raised', {
+      id: player.id,
+      nickname: player.nickname,
+      role: player.role
+    });
+  });
+
+  // Опускання руки
+  socket.on('lower-hand', (code) => {
+    const room = rooms.get(code);
+    if (!room) return;
+
+    const player = room.players.get(socket.id);
+    if (!player) return;
+
+    console.log(`👇 ${player.nickname} опустив(ла) руку в кімнаті ${code}`);
+    
+    io.to(code).emit('hand-lowered', {
+      id: player.id,
+      nickname: player.nickname,
+      role: player.role
+    });
+  });
+
+  // Вхід до черги
+  socket.on('join-queue', (code) => {
+    const room = rooms.get(code);
+    if (!room) return;
+
+    const player = room.players.get(socket.id);
+    if (!player) return;
+
+    // Ініціалізуємо чергу якщо її немає
+    if (!room.queue) {
+      room.queue = [];
+    }
+
+    // Перевіряємо чи гравець вже в черзі
+    if (!room.queue.some(p => p.id === player.id)) {
+      room.queue.push({
+        id: player.id,
+        nickname: player.nickname,
+        role: player.role,
+        socketId: socket.id
+      });
+
+      console.log(`📋 ${player.nickname} увійшов(ла) до черги в кімнаті ${code}`);
+      
+      // Оновлюємо чергу для всіх
+      io.to(code).emit('queue-updated', {
+        queue: room.queue,
+        currentSpeaker: room.currentSpeaker
+      });
+
+      // Якщо це перший в черзі і ніхто не говорить - автоматично починаємо
+      if (room.queue.length === 1 && !room.currentSpeaker) {
+        startNextSpeaker(code);
+      }
+    }
+  });
+
+  // Вихід з черги
+  socket.on('leave-queue', (code) => {
+    const room = rooms.get(code);
+    if (!room || !room.queue) return;
+
+    const playerIndex = room.queue.findIndex(p => p.id === socket.id);
+    if (playerIndex !== -1) {
+      const player = room.queue[playerIndex];
+      room.queue.splice(playerIndex, 1);
+      
+      console.log(`🚪 ${player.nickname} вийшов(ла) з черги в кімнаті ${code}`);
+      
+      io.to(code).emit('queue-updated', {
+        queue: room.queue,
+        currentSpeaker: room.currentSpeaker
+      });
+    }
+  });
+
+  // Завершення виступу
+  socket.on('finish-speaking', (code) => {
+    finishCurrentSpeaker(code);
+  });
+
+  // Наступний промовець (для хоста)
+  socket.on('next-speaker', (code) => {
+    const room = rooms.get(code);
+    if (!room) return;
+
+    // Перевіряємо чи хост
+    const player = room.players.get(socket.id);
+    if (!player || !player.isHost) return;
+
+    finishCurrentSpeaker(code);
+  });
+
+  // Видалення з черги (для хоста)
+  socket.on('remove-from-queue', ({ code, playerId }) => {
+    const room = rooms.get(code);
+    if (!room || !room.queue) return;
+
+    // Перевіряємо чи хост
+    const player = room.players.get(socket.id);
+    if (!player || !player.isHost) return;
+
+    const playerIndex = room.queue.findIndex(p => p.id === playerId);
+    if (playerIndex !== -1) {
+      const removedPlayer = room.queue[playerIndex];
+      room.queue.splice(playerIndex, 1);
+      
+      console.log(`🗑️ Хост видалив ${removedPlayer.nickname} з черги`);
+      
+      io.to(code).emit('queue-updated', {
+        queue: room.queue,
+        currentSpeaker: room.currentSpeaker
+      });
+    }
+  });
+
+  // === ОБРОБНИКИ ЧАТУ ===
+  socket.on('send-message', ({ code, message }) => {
+    console.log(`📤 Отримано повідомлення для кімнати ${code}:`, message);
+    
+    const room = rooms.get(code);
+    if (!room) {
+      console.log('❌ Кімнату не знайдено:', code);
+      return;
+    }
+
+    if (!room.messages) {
+      room.messages = [];
+    }
+
+    // Перевіряємо, чи таке повідомлення вже існує
+    const isDuplicate = room.messages.some(msg => msg.id === message.id);
+    if (isDuplicate) {
+      console.log('⚠️ Пропускаємо дубль повідомлення');
+      return;
+    }
+
+    // Додаємо ID якщо його немає
+    if (!message.id) {
+      message.id = Date.now() + Math.random();
+    }
+
+    // Зберігаємо повідомлення в кімнаті
+    room.messages.push(message);
+    console.log(`💬 Збережено повідомлення в кімнаті ${code}. Всього повідомлень: ${room.messages.length}`);
+    
+    // Надсилаємо всім в кімнаті (включаючи відправника)
+    io.to(code).emit('chat-message', message);
+    console.log(`📨 Надіслано повідомлення всім у кімнаті ${code}: ${message.playerName}: ${message.message}`);
   });
 
   // === ЗМІНА ТИПУ ГРАВЦЯ ===
@@ -258,6 +479,30 @@ io.on('connection', (socket) => {
     
     if (room) {
       updateRoomPlayers(code);
+      
+      // Відправляємо історію чату (фільтруємо дублікати)
+      const chatHistory = room.messages || [];
+      const uniqueMessages = chatHistory.filter((msg, index, self) => 
+        index === self.findIndex(m => m.id === msg.id)
+      );
+      
+      console.log(`📜 Відправляємо історію чату для ${code}:`, uniqueMessages.length, 'повідомлень');
+      socket.emit('chat-history', uniqueMessages);
+      
+      // Відправляємо стан черги
+      socket.emit('queue-updated', {
+        queue: room.queue || [],
+        currentSpeaker: room.currentSpeaker
+      });
+      
+      // Відправляємо час гри
+      if (room.gameStarted) {
+        socket.emit('game-time-update', {
+          timeRemaining: room.timeRemaining,
+          minutes: Math.floor(room.timeRemaining / 60000),
+          seconds: Math.floor((room.timeRemaining % 60000) / 1000)
+        });
+      }
       
       const player = room.players.get(socket.id);
       if (player && player.role) {
@@ -284,9 +529,23 @@ io.on('connection', (socket) => {
     for (const [code, room] of rooms) {
       if (room.players.has(socket.id)) {
         const player = room.players.get(socket.id);
+        
+        // Видаляємо гравця з черги
+        if (room.queue) {
+          room.queue = room.queue.filter(p => p.id !== socket.id);
+        }
+        
+        // Якщо гравець був поточним промовцем - завершуємо його виступ
+        if (room.currentSpeaker && room.currentSpeaker.id === socket.id) {
+          finishCurrentSpeaker(code);
+        }
+        
         room.players.delete(socket.id);
         
         if (room.players.size === 0) {
+          // Очищаємо таймери
+          if (room.gameTimer) clearInterval(room.gameTimer);
+          if (room.speechTimer) clearTimeout(room.speechTimer);
           rooms.delete(code);
           console.log(`🗑️ Кімната ${code} видалена (немає гравців)`);
         } else {
@@ -297,13 +556,132 @@ io.on('connection', (socket) => {
           }
           
           updateRoomPlayers(code);
+          // Оновлюємо чергу
+          io.to(code).emit('queue-updated', {
+            queue: room.queue,
+            currentSpeaker: room.currentSpeaker
+          });
         }
         break;
       }
     }
   });
 
-  // === ФУНКЦІЯ ОНОВЛЕННЯ ГРАВЦІВ ===
+  // === ДОПОМІЖНІ ФУНКЦІЇ ===
+  
+  function startNextSpeaker(code) {
+    const room = rooms.get(code);
+    if (!room || !room.queue || room.queue.length === 0) return;
+
+    const nextSpeaker = room.queue[0];
+    room.currentSpeaker = nextSpeaker;
+    
+    console.log(`🎤 ${nextSpeaker.nickname} почав(ла) виступ в кімнаті ${code}`);
+    
+    // Запускаємо таймер виступу (2 хвилини)
+    room.speechTimer = setTimeout(() => {
+      console.log(`⏰ Час виступу ${nextSpeaker.nickname} вийшов`);
+      finishCurrentSpeaker(code);
+    }, SPEECH_TIME);
+    
+    // Надсилаємо системне повідомлення
+    const systemMessage = {
+      id: Date.now(),
+      playerName: 'Система',
+      message: `${nextSpeaker.nickname} почав(ла) виступ. Час: 2 хвилини.`,
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'system'
+    };
+    
+    room.messages.push(systemMessage);
+    
+    io.to(code).emit('speaker-started', nextSpeaker);
+    io.to(code).emit('queue-updated', {
+      queue: room.queue,
+      currentSpeaker: room.currentSpeaker
+    });
+    io.to(code).emit('chat-message', systemMessage);
+    io.to(code).emit('speech-time-started', { duration: SPEECH_TIME });
+  }
+
+  function finishCurrentSpeaker(code) {
+    const room = rooms.get(code);
+    if (!room || !room.currentSpeaker) return;
+
+    const currentSpeaker = room.currentSpeaker;
+    
+    // Очищаємо таймер виступу
+    if (room.speechTimer) {
+      clearTimeout(room.speechTimer);
+      room.speechTimer = null;
+    }
+    
+    // Видаляємо поточного промовця з черги
+    if (room.queue && room.queue.length > 0) {
+      room.queue = room.queue.filter(p => p.id !== currentSpeaker.id);
+    }
+    
+    room.currentSpeaker = null;
+    
+    console.log(`✅ ${currentSpeaker.nickname} завершив(ла) виступ в кімнаті ${code}`);
+    
+    // Надсилаємо системне повідомлення
+    const systemMessage = {
+      id: Date.now(),
+      playerName: 'Система',
+      message: `${currentSpeaker.nickname} завершив(ла) виступ.`,
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'system'
+    };
+    
+    room.messages.push(systemMessage);
+    
+    io.to(code).emit('speaker-finished', currentSpeaker);
+    io.to(code).emit('queue-updated', {
+      queue: room.queue,
+      currentSpeaker: room.currentSpeaker
+    });
+    io.to(code).emit('chat-message', systemMessage);
+    io.to(code).emit('speech-time-ended');
+
+    // Автоматично запускаємо наступного промовця
+    if (room.queue && room.queue.length > 0) {
+      setTimeout(() => {
+        startNextSpeaker(code);
+      }, 2000); // 2 секунди паузи між виступами
+    }
+  }
+
+  function endGame(code) {
+    const room = rooms.get(code);
+    if (!room) return;
+
+    console.log(`⏰ Гра завершена в кімнаті ${code}`);
+    
+    // Очищаємо всі таймери
+    if (room.gameTimer) clearInterval(room.gameTimer);
+    if (room.speechTimer) clearTimeout(room.speechTimer);
+    
+    // Надсилаємо повідомлення про завершення гри
+    const systemMessage = {
+      id: Date.now(),
+      playerName: 'Система',
+      message: '⏰ Час гри вийшов! Обговорення завершено.',
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'system'
+    };
+    
+    room.messages.push(systemMessage);
+    io.to(code).emit('chat-message', systemMessage);
+    io.to(code).emit('game-ended');
+    
+    // Скидаємо стан гри
+    room.gameStarted = false;
+    room.phase = 'lobby';
+    room.currentSpeaker = null;
+    room.queue = [];
+  }
+
   function updateRoomPlayers(code) {
     const room = rooms.get(code);
     if (!room) return;
@@ -319,7 +697,6 @@ io.on('connection', (socket) => {
     io.to(code).emit('players-updated', playersData);
   }
 
-  // === ГЕНЕРАЦІЯ КОДУ КІМНАТИ ===
   function generateRoomCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
@@ -336,4 +713,6 @@ const PORT = 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Сервер запущено на порті ${PORT}`);
   console.log(`🎭 Доступно ролей: ${ROLES.length} основних + спостерігачі`);
+  console.log(`⏰ Тривалість гри: ${GAME_DURATION/60000} хвилин`);
+  console.log(`🎤 Час виступу: ${SPEECH_TIME/60000} хвилини`);
 });

@@ -1,452 +1,374 @@
-.game-room {
+/* === ФУТУРИСТИЧНИЙ СТИЛЬ: КОСМОС + СКЛО === */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #0a1128;
+    color: #e0f2fe;
     min-height: 100vh;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
+    background-image:
+        radial-gradient(circle at 10% 20%, #1e293b 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, #1e40af 0%, transparent 50%),
+        linear-gradient(135deg, #0a1128 0%, #1e293b 50%, #0f172a 100%);
+    overflow-x: hidden;
+    line-height: 1.6;
 }
 
-.room-header {
-    text-align: center;
-    background: linear-gradient(135deg, #1e3a8a, #3730a3);
-    color: white;
-    padding: 30px;
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(30, 50, 100, 0.03) 4px, rgba(30, 50, 100, 0.03) 8px),
+        repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(50, 100, 150, 0.03) 4px, rgba(50, 100, 150, 0.03) 8px);
+    pointer-events: none;
+    z-index: -1;
+    animation: scan 20s linear infinite;
+}
+
+@keyframes scan {
+    0% {
+        transform: translateY(0);
+    }
+
+    100% {
+        transform: translateY(8px);
+    }
+}
+
+/* === КАРТКИ === */
+.card {
+    background: rgba(20, 30, 60, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(100, 150, 255, 0.25);
     border-radius: 20px;
-    margin-bottom: 25px;
+    padding: 28px;
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.4s ease;
 }
 
-.my-role {
-    display: flex;
-    align-items: center;
-    background: linear-gradient(135deg, #1e3a8a, #3730a3);
-    padding: 25px;
-    border-radius: 20px;
-    margin-bottom: 25px;
+.card:hover {
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.5);
+    transform: translateY(-3px);
 }
 
-.role-emoji {
-    font-size: 4rem;
-    margin-right: 20px;
+/* === ЗАГОЛОВКИ === */
+h1,
+h2,
+h3,
+h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: #e0f2fe;
+    letter-spacing: -0.4px;
 }
 
-.players-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    margin-bottom: 25px;
+h1 {
+    font-size: 2.6rem;
+    margin-bottom: 10px;
 }
 
-.stat {
-    background: rgba(30, 41, 59, 0.8);
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
+h2 {
+    font-size: 1.9rem;
+    margin-bottom: 8px;
+    color: #94a3b8;
 }
 
-.stat-number {
-    display: block;
-    font-size: 2rem;
-    font-weight: bold;
-    color: #60a5fa;
+h3 {
+    font-size: 1.35rem;
+    margin-bottom: 14px;
+    color: #64748b;
 }
 
-.stat-label {
-    font-size: 0.9rem;
-    opacity: 0.8;
-}
-
-.players-list {
-    background: rgba(30, 41, 59, 0.8);
-    padding: 25px;
-    border-radius: 20px;
-    margin-bottom: 25px;
-}
-
-.players-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 15px;
-}
-
-.player-card {
-    display: flex;
-    align-items: center;
-    padding: 20px;
-    border-radius: 12px;
-    border: 2px solid;
-}
-
-.player-card.player {
-    border-color: #10b981;
-    background: rgba(16, 185, 129, 0.1);
-}
-
-.player-card.observer {
-    border-color: #f59e0b;
-    background: rgba(245, 158, 11, 0.1);
-}
-
-.player-emoji {
-    font-size: 2.5rem;
-    margin-right: 15px;
-}
-
-.player-type {
-    font-size: 0.8rem;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-weight: bold;
-}
-
-.player-type.player {
-    background: #10b981;
-    color: white;
-}
-
-.player-type.observer {
-    background: #f59e0b;
-    color: white;
-}
-
-.game-controls {
-    text-align: center;
-    padding: 30px;
-    background: rgba(30, 41, 59, 0.8);
-    border-radius: 20px;
-    margin-bottom: 25px;
-}
-
-.btn-assign,
-.btn-start {
-    padding: 16px 32px;
-    border: none;
-    border-radius: 12px;
+h4 {
     font-size: 1.1rem;
-    font-weight: bold;
+    margin-bottom: 12px;
+    color: #475569;
+}
+
+/* === ТЕКСТ === */
+p,
+li,
+span {
+    color: #94a3b8;
+    font-size: 0.98rem;
+}
+
+strong {
+    color: #e0f2fe;
+}
+
+/* === КНОПКИ — ЄДИНІ, КРАСИВІ, З ІКОНКАМИ === */
+.btn {
+    width: 100%;
+    padding: 18px 28px;
+    border: none;
+    border-radius: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 1.1rem;
     cursor: pointer;
-    margin: 0 10px;
-}
-
-.btn-assign {
-    background: #8b5cf6;
-    color: white;
-}
-
-.btn-start {
-    background: #10b981;
-    color: white;
-}
-
-.type-switcher {
-    background: rgba(30, 41, 59, 0.8);
-    padding: 20px;
-    border-radius: 20px;
-}
-
-.switch-buttons {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin: 10px 0;
+    backdrop-filter: blur(10px);
+    box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
     display: flex;
-    gap: 15px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: white;
+    font-weight: 600;
 }
 
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    border-radius: 16px;
+}
+
+.btn:hover::before {
+    opacity: 1;
+}
+
+.btn:active {
+    transform: translateY(2px);
+}
+
+/* === ГОЛОВНІ КНОПКИ === */
+.btn-create,
+.btn-start-game,
+.btn-assign-roles {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.btn-create:hover:not(:disabled),
+.btn-start-game:hover:not(:disabled),
+.btn-assign-roles:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 35px rgba(16, 185, 129, 0.4);
+}
+
+.btn-join,
+.btn-continue {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.btn-join:hover:not(:disabled),
+.btn-continue:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 35px rgba(59, 130, 246, 0.4);
+}
+
+/* === ВИМКНЕНО === */
+.btn:disabled {
+    background: #334155;
+    color: #64748b;
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none !important;
+    box-shadow: none !important;
+    border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+/* === ПЕРЕМИКАЧІ === */
 .switch-btn {
-    padding: 12px 20px;
-    border: 2px solid #374151;
-    border-radius: 10px;
-    background: transparent;
+    flex: 1;
+    padding: 14px;
+    border: 1px solid rgba(100, 150, 255, 0.3);
+    border-radius: 14px;
+    background: rgba(30, 50, 100, 0.3);
     color: #94a3b8;
     cursor: pointer;
-    flex: 1;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+    backdrop-filter: blur(4px);
 }
 
 .switch-btn.active {
     border-color: #60a5fa;
-    background: rgba(96, 165, 250, 0.1);
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3);
+}
+
+/* === СТАТИСТИКА === */
+.stat {
+    padding: 18px;
+    border-radius: 16px;
+    text-align: center;
+    background: rgba(30, 50, 100, 0.3);
+    border: 1px solid rgba(100, 150, 255, 0.25);
+    min-width: 80px;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
     color: #60a5fa;
 }
 
-.intro-screen {
-    min-height: 100vh;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
+.stat-label {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+/* === СПИСОК ГРАВЦІВ === */
+.player-card {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-
-.intro-card {
-    background: rgba(30, 41, 59, 0.9);
-    border-radius: 20px;
-    padding: 40px;
-    max-width: 600px;
-    width: 100%;
-}
-
-.section {
-    background: rgba(15, 23, 42, 0.8);
-    padding: 25px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-}
-
-.intro-buttons {
-    text-align: center;
-    margin-top: 30px;
-}
-.btn-assign,
-.btn-start {
-    padding: 16px 32px;
-    border: none;
-    border-radius: 12px;
-    font-size: 1.1rem;
-    font-weight: bold;
-    cursor: pointer;
-    margin: 0 10px 15px;
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(100, 150, 255, 0.2);
+    background: rgba(30, 50, 100, 0.25);
     transition: all 0.3s ease;
-    min-width: 200px;
-    font-family: inherit;
 }
 
-.btn-assign {
-    background: linear-gradient(135deg, #8b5cf6, #a78bfa);
-    color: white;
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+.player-card:hover {
+    border-color: #60a5fa;
+    background: rgba(96, 165, 250, 0.1);
+    box-shadow: 0 0 15px rgba(96, 165, 250, 0.15);
 }
 
-.btn-assign:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+.player-emoji {
+    font-size: 2rem;
+    margin-right: 14px;
 }
 
-.btn-start {
-    background: linear-gradient(135deg, #10b981, #34d399);
-    color: white;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+.player-info {
+    flex: 1;
 }
 
-.btn-start:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-}
-
-.btn-assign:disabled,
-.btn-start:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none !important;
-    box-shadow: none !important;
-}
-
-/* === КОНТЕЙНЕР КНОПОК === */
-.game-controls {
-    text-align: center;
-    padding: 30px;
-    background: rgba(30, 41, 59, 0.8);
-    border-radius: 20px;
-    margin-bottom: 25px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.game-status {
-    margin-top: 15px;
-    font-size: 1.1rem;
+.player-role {
+    display: block;
+    font-size: 0.9rem;
     color: #94a3b8;
-    font-weight: 500;
-}
-.game-controls {
-    background: #1e3a8a !important;
-    padding: 20px !important;
-    border-radius: 15px !important;
-    margin-bottom: 20px !important;
-    text-align: center !important;
-    border: 2px solid #4f46e5 !important;
-}
-.role-screen {
-    min-height: 100vh;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
 }
 
+.player-type {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+    background: rgba(100, 150, 255, 0.2);
+    color: #60a5fa;
+}
+
+/* === РОЛЬОВИЙ ЕКРАН === */
 .role-card {
-    background: rgba(30, 41, 59, 0.95);
-    border-radius: 25px;
-    padding: 40px;
-    max-width: 600px;
+    max-width: 580px;
     width: 100%;
-    border: 2px solid #4f46e5;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    padding: 50px 40px;
+    border-radius: 26px;
     text-align: center;
-    color: white;
+    background: rgba(20, 30, 60, 0.8);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(100, 150, 255, 0.3);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
 .role-image {
-    font-size: 8rem;
-    margin-bottom: 20px;
-    animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-
-    0%,
-    100% {
-        transform: translateY(0px);
-    }
-
-    50% {
-        transform: translateY(-10px);
-    }
-}
-
-.role-card h1 {
-    font-size: 2.5rem;
-    margin-bottom: 15px;
+    font-size: 7rem;
+    margin-bottom: 18px;
     color: #60a5fa;
 }
 
 .role-badge {
     font-size: 3rem;
-    margin-bottom: 30px;
+    margin: 14px 0;
 }
 
 .role-section {
-    background: rgba(15, 23, 42, 0.8);
-    padding: 25px;
-    border-radius: 15px;
-    margin-bottom: 20px;
+    background: rgba(30, 50, 100, 0.3);
+    padding: 22px;
+    border-radius: 16px;
+    margin-bottom: 18px;
     border-left: 4px solid #60a5fa;
     text-align: left;
 }
 
 .role-section h3 {
     color: #60a5fa;
-    margin-bottom: 15px;
-    font-size: 1.3rem;
-}
-
-.role-description {
+    margin-bottom: 12px;
     font-size: 1.2rem;
-    line-height: 1.6;
-    font-weight: 500;
 }
 
-.role-full-description {
-    line-height: 1.6;
-    opacity: 0.9;
+/* === ЧАТ === */
+.messages-container {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 16px;
+    border-radius: 14px;
+    background: rgba(15, 25, 50, 0.4);
+    border: 1px solid rgba(100, 150, 255, 0.2);
 }
 
-.role-tips {
-    padding-left: 20px;
-}
-
-.role-tips li {
-    margin: 10px 0;
-    opacity: 0.9;
-}
-
-.btn-continue {
-    background: linear-gradient(135deg, #10b981, #34d399);
-    color: white;
-    border: none;
-    padding: 16px 32px;
-    font-size: 1.2rem;
-    font-weight: bold;
+.message {
+    margin-bottom: 12px;
+    padding: 12px 14px;
     border-radius: 12px;
-    cursor: pointer;
-    margin-top: 20px;
-    transition: all 0.3s ease;
+    background: rgba(30, 50, 100, 0.3);
+    font-size: 0.95rem;
 }
 
-.btn-continue:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+.message.system {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+    font-style: italic;
 }
 
-/* СТИЛІ ДЛЯ ХОСТА */
-.game-controls-host {
-    background: linear-gradient(135deg, #1e3a8a, #3730a3);
-    padding: 30px;
-    border-radius: 20px;
-    margin-bottom: 25px;
-    border: 2px solid #4f46e5;
-    text-align: center;
+.message-time {
+    font-size: 0.7rem;
+    color: #64748b;
+    float: right;
+    margin-left: 8px;
 }
 
-.host-buttons {
-    display: flex;
-    gap: 20px;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin: 25px 0;
-}
+/* === АДАПТИВНІСТЬ === */
+@media (max-width: 768px) {
 
-.btn-assign-roles,
-.btn-start-game {
-    padding: 16px 24px;
-    font-size: 18px;
-    color: white;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: bold;
-    min-width: 220px;
-    transition: all 0.3s ease;
-}
+    .card,
+    .role-card {
+        padding: 20px;
+    }
 
-.btn-assign-roles {
-    background: #8b5cf6;
-}
+    .btn {
+        padding: 16px;
+        font-size: 1rem;
+    }
 
-.btn-assign-roles:hover:not(:disabled) {
-    background: #7c3aed;
-    transform: translateY(-2px);
-}
-
-.btn-start-game {
-    background: #10b981;
-}
-
-.btn-start-game:hover:not(:disabled) {
-    background: #059669;
-    transform: translateY(-2px);
-}
-
-.btn-assign-roles:disabled,
-.btn-start-game:disabled {
-    background: #6b7280;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.roles-info {
-    margin-top: 20px;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 15px;
-    border-radius: 10px;
-}
-
-.roles-preview {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 10px;
-}
-
-.role-preview {
-    background: rgba(255, 255, 255, 0.2);
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 0.9rem;
-}
-
-.waiting-for-host {
-    background: rgba(245, 158, 11, 0.1);
-    padding: 25px;
-    border-radius: 15px;
-    margin-bottom: 25px;
-    border: 2px solid #f59e0b;
-    color: #f59e0b;
-    text-align: center;
+    .discussion-area {
+        grid-template-columns: 1fr;
+    }
 }

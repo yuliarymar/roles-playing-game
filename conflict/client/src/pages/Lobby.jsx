@@ -57,10 +57,10 @@ export default function Lobby() {
     <div className="lobby-container">
       <div className="lobby-card">
         <h1>🏛️ Місто Рішень</h1>
-        <p className="subtitle">Гра "Мікро Рішень" - Симулятор прийняття рішень</p>
+        <p className="subtitle">Гра "Місто Рішень" - Ситуаційна-рольова гра</p>
 
         <div className="input-group">
-          <label>📛 Ваше ім'я</label>
+          <label> Ваше ім'я</label>
           <input
             type="text"
             value={nickname}

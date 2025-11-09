@@ -25,7 +25,16 @@ export default function GameRoom() {
   const [playerType, setPlayerType] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [showRoleScreen, setShowRoleScreen] = useState(false);
-  const [gamePhase, setGamePhase] = useState('lobby'); // 'lobby', 'roles-assigned', 'game-started'
+  const [gamePhase, setGamePhase] = useState('lobby');
+  
+  // ДОДАЄМО СТЕЙТИ ДЛЯ ЧАТУ ТА ЧЕРГИ
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [queue, setQueue] = useState([]);
+  const [currentSpeaker, setCurrentSpeaker] = useState(null);
+  const [isInQueue, setIsInQueue] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [handRaised, setHandRaised] = useState(false);
 
   useEffect(() => {
     console.log('🔍 GameRoom mounted, code:', code);
@@ -77,6 +86,79 @@ export default function GameRoom() {
       setGamePhase(phase);
     });
 
+    // ДОДАЄМО ОБРОБНИКИ ДЛЯ ЧАТУ
+    socket.on('chat-message', (messageData) => {
+      console.log('💬 New chat message:', messageData);
+      setMessages(prev => {
+        const isDuplicate = prev.some(msg => msg.id === messageData.id);
+        if (isDuplicate) {
+          console.log('⚠️ Duplicate message detected, skipping');
+          return prev;
+        }
+        return [...prev, messageData];
+      });
+    });
+
+    socket.on('chat-history', (history) => {
+      console.log('📜 Chat history:', history);
+      const uniqueHistory = history.filter((msg, index, self) => 
+        index === self.findIndex(m => m.id === msg.id)
+      );
+      setMessages(uniqueHistory);
+    });
+
+    // ДОДАЄМО ОБРОБНИКИ ДЛЯ СИСТЕМИ ЧЕРГИ
+    socket.on('queue-updated', (queueData) => {
+      console.log('📋 Queue updated:', queueData);
+      setQueue(queueData.queue);
+      setCurrentSpeaker(queueData.currentSpeaker);
+      
+      // Оновлюємо наші статуси
+      setIsInQueue(queueData.queue.some(player => player.id === socket.id));
+      setIsSpeaking(queueData.currentSpeaker?.id === socket.id);
+    });
+
+    socket.on('hand-raised', (playerData) => {
+      console.log('✋ Hand raised:', playerData);
+      // Додаємо системне повідомлення
+      const systemMessage = {
+        id: Date.now() + Math.random(),
+        playerName: 'Система',
+        message: `${playerData.nickname} підняв(ла) руку`,
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'system'
+      };
+      setMessages(prev => [...prev, systemMessage]);
+    });
+
+    socket.on('hand-lowered', (playerData) => {
+      console.log('👇 Hand lowered:', playerData);
+    });
+
+    socket.on('speaker-started', (speakerData) => {
+      console.log('🎤 Speaker started:', speakerData);
+      const systemMessage = {
+        id: Date.now() + Math.random(),
+        playerName: 'Система',
+        message: `${speakerData.nickname} почав(ла) виступ`,
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'system'
+      };
+      setMessages(prev => [...prev, systemMessage]);
+    });
+
+    socket.on('speaker-finished', (speakerData) => {
+      console.log('✅ Speaker finished:', speakerData);
+      const systemMessage = {
+        id: Date.now() + Math.random(),
+        playerName: 'Система',
+        message: `${speakerData.nickname} завершив(ла) виступ`,
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'system'
+      };
+      setMessages(prev => [...prev, systemMessage]);
+    });
+
     socket.on('error', (message) => {
       console.error('❌ Socket error:', message);
       alert(`❌ Помилка: ${message}`);
@@ -89,6 +171,13 @@ export default function GameRoom() {
       socket.off('roles-distributed');
       socket.off('game-started');
       socket.off('game-phase-changed');
+      socket.off('chat-message');
+      socket.off('chat-history');
+      socket.off('queue-updated');
+      socket.off('hand-raised');
+      socket.off('hand-lowered');
+      socket.off('speaker-started');
+      socket.off('speaker-finished');
       socket.off('error');
     };
   }, [code]);
@@ -100,9 +189,19 @@ export default function GameRoom() {
       playersCount: players.length,
       isHost,
       role,
-      showRoleScreen
+      showRoleScreen,
+      queue,
+      currentSpeaker
     });
-  }, [gamePhase, players, isHost, role, showRoleScreen]);
+  }, [gamePhase, players, isHost, role, showRoleScreen, queue, currentSpeaker]);
+
+  // useEffect для автоматичного скролу до нових повідомлень
+  useEffect(() => {
+    const messagesContainer = document.querySelector('.messages-container');
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  }, [messages]);
 
   const assignRoles = () => {
     console.log('🎭 Assigning roles...');
@@ -125,6 +224,69 @@ export default function GameRoom() {
   const closeRoleScreen = () => {
     console.log('📱 Closing role screen');
     setShowRoleScreen(false);
+  };
+
+  // ФУНКЦІЇ ДЛЯ ЧАТУ
+  const sendMessage = () => {
+    if (!newMessage.trim()) return;
+    
+    const messageData = {
+      id: Date.now() + Math.random(),
+      playerName: nickname,
+      playerRole: role?.name,
+      message: newMessage,
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'player'
+    };
+    
+    console.log('📤 Sending message:', messageData);
+    socket.emit('send-message', { code, message: messageData });
+    setNewMessage('');
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      sendMessage();
+    }
+  };
+
+  // ФУНКЦІЇ ДЛЯ СИСТЕМИ ЧЕРГИ
+  const raiseHand = () => {
+    console.log('✋ Raising hand');
+    socket.emit('raise-hand', code);
+    setHandRaised(true);
+  };
+
+  const lowerHand = () => {
+    console.log('👇 Lowering hand');
+    socket.emit('lower-hand', code);
+    setHandRaised(false);
+  };
+
+  const joinQueue = () => {
+    console.log('📋 Joining queue');
+    socket.emit('join-queue', code);
+  };
+
+  const leaveQueue = () => {
+    console.log('🚪 Leaving queue');
+    socket.emit('leave-queue', code);
+  };
+
+  const finishSpeaking = () => {
+    console.log('✅ Finishing speaking');
+    socket.emit('finish-speaking', code);
+  };
+
+  // ФУНКЦІЇ ДЛЯ ХОСТА
+  const nextSpeaker = () => {
+    console.log('⏭️ Next speaker');
+    socket.emit('next-speaker', code);
+  };
+
+  const removeFromQueue = (playerId) => {
+    console.log('🗑️ Removing from queue:', playerId);
+    socket.emit('remove-from-queue', { code, playerId });
   };
 
   const playerCount = players.filter(p => p.roleType === 'player').length;
@@ -174,7 +336,7 @@ export default function GameRoom() {
         <div className="game-header">
           <h1>🏛️ Місто Рішень - Гра триває!</h1>
           <h2>Кімната: <strong>{code}</strong></h2>
-          <p>Ваша роль: <strong>{role?.name}</strong></p>
+          <p>Ваша роль: <strong>{role?.name}</strong> {role?.emoji}</p>
         </div>
 
         <div className="discussion-area">
@@ -186,6 +348,120 @@ export default function GameRoom() {
               <p>Тепер різні сторони мають знайти спільне рішення цієї ситуації.</p>
               <div className="scenario-tips">
                 <p>💬 <strong>Початок обговорення:</strong> Представтесь своєю роллю та висловіть свою позицію.</p>
+                <p>🎤 <strong>Правила:</strong> Піднімайте руку, щоб взяти слово. Говоріть по черзі!</p>
+              </div>
+            </div>
+
+            {/* СИСТЕМА ЧЕРГИ */}
+            <div className="queue-system">
+              <h3>🎤 Система черги</h3>
+              
+              {/* ПОТОЧНИЙ ПРОМОВЦЯ */}
+              {currentSpeaker && (
+                <div className="current-speaker">
+                  <h4>🟢 Зараз говорить:</h4>
+                  <div className="speaker-card">
+                    <span className="player-emoji">{ROLE_IMAGES[currentSpeaker.role] || '🎭'}</span>
+                    <div className="speaker-info">
+                      <strong>{currentSpeaker.nickname}</strong>
+                      <span>{currentSpeaker.role}</span>
+                    </div>
+                    {isHost && (
+                      <button 
+                        className="btn-next" 
+                        onClick={nextSpeaker}
+                        title="Наступний промовець"
+                      >
+                        ⏭️
+                      </button>
+                    )}
+                    {currentSpeaker.id === socket.id && (
+                      <button 
+                        className="btn-finish" 
+                        onClick={finishSpeaking}
+                      >
+                        ✅ Завершити
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ЧЕРГА */}
+              <div className="queue-list">
+                <h4>📋 Черга ({queue.length}):</h4>
+                {queue.length > 0 ? (
+                  <div className="queue-items">
+                    {queue.map((player, index) => (
+                      <div key={player.id} className="queue-item">
+                        <span className="queue-number">{index + 1}.</span>
+                        <span className="player-emoji">{ROLE_IMAGES[player.role] || '🎭'}</span>
+                        <span className="queue-player">{player.nickname}</span>
+                        <span className="queue-role">{player.role}</span>
+                        {isHost && (
+                          <button 
+                            className="btn-remove" 
+                            onClick={() => removeFromQueue(player.id)}
+                            title="Видалити з черги"
+                          >
+                            ❌
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-queue">Черга порожня</p>
+                )}
+              </div>
+
+              {/* КНОПКИ КЕРУВАННЯ */}
+              <div className="queue-controls">
+                {!isSpeaking && !isInQueue && (
+                  <button 
+                    className="btn-raise-hand"
+                    onClick={raiseHand}
+                    disabled={handRaised}
+                  >
+                    {handRaised ? '✋ Рука піднята' : '✋ Підняти руку'}
+                  </button>
+                )}
+                
+                {handRaised && !isInQueue && (
+                  <button 
+                    className="btn-join-queue"
+                    onClick={joinQueue}
+                  >
+                    📋 Увійти в чергу
+                  </button>
+                )}
+                
+                {isInQueue && (
+                  <button 
+                    className="btn-leave-queue"
+                    onClick={leaveQueue}
+                  >
+                    🚪 Вийти з черги
+                  </button>
+                )}
+                
+                {handRaised && (
+                  <button 
+                    className="btn-lower-hand"
+                    onClick={lowerHand}
+                  >
+                    👇 Опустити руку
+                  </button>
+                )}
+
+                {isSpeaking && (
+                  <button 
+                    className="btn-speaking"
+                    onClick={finishSpeaking}
+                  >
+                    🎤 Я говорю...
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -199,11 +475,36 @@ export default function GameRoom() {
               <div className="message system">
                 <strong>Система:</strong> Мета: знайти компромісне рішення для ситуації з графіті.
               </div>
+              <div className="message system">
+                <strong>Система:</strong> Використовуйте систему черги для організованого обговорення.
+              </div>
+              
+              {/* ПОВІДОМЛЕННЯ КОРИСТУВАЧІВ */}
+              {messages.map((msg) => (
+                <div key={msg.id} className={`message ${msg.type === 'system' ? 'system' : 'player'}`}>
+                  <strong>{msg.playerName}</strong> 
+                  {msg.playerRole && ` (${msg.playerRole})`}: {msg.message}
+                  <span className="message-time"> {msg.timestamp}</span>
+                </div>
+              ))}
             </div>
             
             <div className="message-input">
-              <input type="text" placeholder="Напишіть ваше повідомлення..." />
-              <button className="btn-send">Надіслати</button>
+              <input 
+                type="text" 
+                placeholder="Напишіть ваше повідомлення..." 
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={isSpeaking}
+              />
+              <button 
+                className="btn-send" 
+                onClick={sendMessage}
+                disabled={isSpeaking}
+              >
+                Надіслати
+              </button>
             </div>
           </div>
 
@@ -211,11 +512,15 @@ export default function GameRoom() {
             <h3>👥 Учасники ({players.length})</h3>
             <div className="players-list-game">
               {players.map(player => (
-                <div key={player.id} className={`game-player ${player.roleType}`}>
+                <div key={player.id} className={`game-player ${player.roleType} ${
+                  currentSpeaker?.id === player.id ? 'speaking' : ''
+                } ${queue.some(p => p.id === player.id) ? 'in-queue' : ''}`}>
                   <span className="player-emoji">{ROLE_IMAGES[player.role] || '🎭'}</span>
                   <div className="player-info-game">
                     <span className="player-name">{player.nickname}</span>
                     <span className="player-role-badge">{player.role}</span>
+                    {currentSpeaker?.id === player.id && <span className="speaking-badge">🎤 ГОВОРИТЬ</span>}
+                    {queue.some(p => p.id === player.id) && <span className="queue-badge">📋 В ЧЕРЗІ</span>}
                     {player.isHost && <span className="host-badge">👑</span>}
                   </div>
                 </div>
@@ -225,7 +530,7 @@ export default function GameRoom() {
         </div>
 
         <div className="game-controls">
-          <button className="btn-exit" onClick={() => window.location.reload()}>
+          <button className="btn-exit" onClick={() => window.location.href = '/'}>
             🏃 Вийти з гри
           </button>
         </div>
@@ -233,7 +538,7 @@ export default function GameRoom() {
     );
   }
 
-  // ОСНОВНИЙ ЕКРАН ЛОБІ
+  // ОСНОВНИЙ ЕКРАН ЛОБІ (залишається без змін)
   return (
     <div className="game-room">
       <div className="room-header">
