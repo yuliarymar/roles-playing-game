@@ -1,17 +1,16 @@
 // conflict/client/src/socket.js
 import { io } from 'socket.io-client';
 
-// АВТОМАТИЧНИЙ ВИБІР URL
-const isDev = import.meta.env.DEV;
-const BACKEND_URL = isDev 
-  ? 'http://localhost:3001' 
-  : 'https://roles-playing-game.onrender.com';
+// ВИДАЛИ import.meta.env.DEV — ВЕРЦЕЛЬ НЕ РОЗУМІЄ!
+// ПІДКЛЮЧАЙСЯ ТІЛЬКИ ДО RENDER!
 
-console.log('Connecting to:', BACKEND_URL); // ← ДЛЯ ДЕБАГУ
+const BACKEND_URL = 'https://roles-playing-game.onrender.com'; // ← ТІЛЬКИ ЦЕ!
+
+console.log('Connecting to:', BACKEND_URL);
 
 const socket = io(BACKEND_URL, {
-  secure: !isDev,           // ← HTTPS тільки в продакшені
-  transports: ['websocket'], // ← ТІЛЬКИ WebSocket (полінг ламає телефони)
+  secure: true,
+  transports: ['websocket'], // ← ТІЛЬКИ WebSocket
   reconnection: true,
   reconnectionAttempts: 10,
   reconnectionDelay: 1000,
@@ -19,15 +18,7 @@ const socket = io(BACKEND_URL, {
   forceNew: true
 });
 
-// ДЕБАГ
-socket.on('connect', () => {
-  console.log('SOCKET CONNECTED:', socket.id);
-});
-socket.on('connect_error', (err) => {
-  console.error('SOCKET ERROR:', err.message);
-});
-socket.on('disconnect', () => {
-  console.log('SOCKET DISCONNECTED');
-});
+socket.on('connect', () => console.log('SOCKET CONNECTED:', socket.id));
+socket.on('connect_error', (err) => console.error('SOCKET ERROR:', err.message));
 
 export default socket;
