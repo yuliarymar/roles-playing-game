@@ -1,16 +1,14 @@
 // conflict/client/src/socket.js
 import { io } from 'socket.io-client';
 
-// ВИДАЛИ import.meta.env.DEV — ВЕРЦЕЛЬ НЕ РОЗУМІЄ!
-// ПІДКЛЮЧАЙСЯ ТІЛЬКИ ДО RENDER!
+// ТІЛЬКИ RENDER! ЛОКАЛХОСТ — ВБИВАЄ ГРУ!
+const BACKEND_URL = 'https://roles-playing-game.onrender.com';
 
-const BACKEND_URL = 'https://roles-playing-game.onrender.com'; // ← ТІЛЬКИ ЦЕ!
-
-console.log('Connecting to:', BACKEND_URL);
+console.log('SOCKET: Connecting to Render →', BACKEND_URL);
 
 const socket = io(BACKEND_URL, {
   secure: true,
-  transports: ['websocket'], // ← ТІЛЬКИ WebSocket
+  transports: ['websocket'], // ТІЛЬКИ WebSocket
   reconnection: true,
   reconnectionAttempts: 10,
   reconnectionDelay: 1000,
@@ -18,7 +16,15 @@ const socket = io(BACKEND_URL, {
   forceNew: true
 });
 
-socket.on('connect', () => console.log('SOCKET CONNECTED:', socket.id));
-socket.on('connect_error', (err) => console.error('SOCKET ERROR:', err.message));
+// ДЕБАГ
+socket.on('connect', () => {
+  console.log('SOCKET CONNECTED! ID:', socket.id);
+});
+socket.on('connect_error', (err) => {
+  console.error('SOCKET ERROR:', err.message);
+});
+socket.on('disconnect', () => {
+  console.log('SOCKET DISCONNECTED');
+});
 
 export default socket;
