@@ -1,32 +1,67 @@
 import { io } from 'socket.io-client';
 
-// Простий спосіб - використовуйте тільки Render URL
-const BACKEND_URL = 'https://roles-playing-game.onrender.com';
+class SocketManager {
+  constructor() {
+    this.socket = null;
+    this.isConnected = false;
+  }
 
-// Або якщо потрібно локальне тестування, використовуйте умовну логіку:
-// const BACKEND_URL = window.location.hostname === 'localhost' 
-//   ? 'http://localhost:3001'
-//   : 'https://roles-playing-game.onrender.com';
+  connect() {
+    if (this.socket) return this.socket;
 
-console.log('Підключаюся до сервера:', BACKEND_URL);
+    const BACKEND_URL = import.meta.env.PROD 
+      ? 'https://your-render-app.onrender.com'
+      : 'http://localhost:3001';
 
-const socket = io(BACKEND_URL, {
-  transports: ['websocket', 'polling'],
-  reconnection: true,
-  reconnectionAttempts: 10,
-  timeout: 20000
-});
+    console.log('🔗 Підключення до сервера:', BACKEND_URL);
 
-socket.on('connect', () => {
-  console.log('✅ ПІДКЛЮЧЕНО ДО СЕРВЕРА!', socket.id);
-});
+    this.socket = io(BACKEND_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+      forceNew: true
+    });
 
-socket.on('disconnect', () => {
-  console.log('❌ ВІД\'ЄДНАНО ВІД СЕРВЕРА');
-});
+    this.socket.on('connect', () => {
+      console.log('✅ ПІДКЛЮЧЕНО ДО СЕРВЕРА!', this.socket.id);
+      this.isConnected = true;
+    });
 
-socket.on('connect_error', (err) => {
-  console.error('❌ ПОМИЛКА ПІДКЛЮЧЕННЯ:', err.message);
-});
+    this.socket.on('disconnect', (reason) => {
+      console.log('❌ ВІД\'ЄДНАНО ВІД СЕРВЕРА:', reason);
+      this.isConnected = false;
+    });
 
-export default socket;
+    this.socket.on('connect_error', (error) => {
+      console.error('❌ ПОМИЛКА ПІДКЛЮЧЕННЯ:', error.message);
+      this.isConnected = false;
+    });
+
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log('🔄 ПЕРЕПІДКЛЮЧЕННЯ: Спроба', attemptNumber);
+      this.isConnected = true;
+    });
+
+    return this.socket;
+  }
+
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+      this.isConnected = false;
+    }
+  }
+
+  getSocket() {
+    return this.socket;
+  }
+
+  getConnectionStatus() {
+    return this.isConnected;
+  }
+}
+
+export default new SocketManager();
