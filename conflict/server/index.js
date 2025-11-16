@@ -740,6 +740,7 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 Неперехоплена відмова:', reason);
 });
+
 // === ЗАПУСК СЕРВЕРА ===
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
