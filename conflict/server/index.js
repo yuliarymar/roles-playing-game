@@ -14,133 +14,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// === ГЛАВНА СТОРІНКА ===
-app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Roles Playing Game Server</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 0; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-          }
-          .container { 
-            max-width: 600px; 
-            width: 100%;
-            margin: 0 auto; 
-            background: white; 
-            padding: 40px 30px;
-            border-radius: 20px; 
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            text-align: center;
-          }
-          h1 { 
-            color: #2c3e50; 
-            margin-bottom: 20px;
-            font-size: 2.5rem;
-          }
-          .status { 
-            color: #27ae60; 
-            font-weight: bold; 
-            font-size: 1.5rem; 
-            margin: 20px 0;
-            padding: 10px;
-            background: #f8fff9;
-            border-radius: 10px;
-            border: 2px solid #27ae60;
-          }
-          .emoji { 
-            font-size: 80px; 
-            margin: 20px 0; 
-          }
-          .info { 
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 20px 0;
-            text-align: left;
-          }
-          .links {
-            margin-top: 30px;
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            flex-wrap: wrap;
-          }
-          a { 
-            color: white;
-            background: #3498db;
-            padding: 12px 25px;
-            border-radius: 25px;
-            text-decoration: none; 
-            font-weight: 600;
-            transition: all 0.3s ease;
-            display: inline-block;
-          }
-          a:hover { 
-            background: #2980b9;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-          }
-          .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin: 20px 0;
-          }
-          .stat-item {
-            background: #e8f4fc;
-            padding: 15px;
-            border-radius: 10px;
-            font-weight: 600;
-          }
-          @media (max-width: 480px) {
-            .container { padding: 25px 20px; }
-            h1 { font-size: 2rem; }
-            .stats { grid-template-columns: 1fr; }
-            .links { flex-direction: column; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="emoji">🎮</div>
-          <h1>Roles Playing Game</h1>
-          <div class="status">🚀 Сервер працює!</div>
-          
-          <div class="info">
-            <p><strong>Socket.IO сервер для гри "Конфлікт у школі"</strong></p>
-            <p>Мультиплеєрна рольова гра з системою черг, чатом та таймерами</p>
-          </div>
-
-          <div class="stats">
-            <div class="stat-item">🌐 Порт: <strong>${process.env.PORT || 3001}</strong></div>
-            <div class="stat-item">👥 Активні кімнати: <strong>${Array.from(rooms.keys()).length}</strong></div>
-            <div class="stat-item">⚡ Версія: <strong>1.0.0</strong></div>
-            <div class="stat-item">🔧 Статус: <strong>Online</strong></div>
-          </div>
-
-          <div class="links">
-            <a href="/health" target="_blank">Health Check</a>
-            <a href="https://roles-playing-game.vercel.app" target="_blank">🎮 Грати зараз</a>
-            <a href="/api/rooms" target="_blank">📊 Статистика</a>
-          </div>
-        </div>
-      </body>
-    </html>
-  `);
-});
 
 // === API МАРШРУТИ ===
 app.get('/health', (req, res) => {
@@ -867,18 +740,32 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 Неперехоплена відмова:', reason);
 });
-
 // === ЗАПУСК СЕРВЕРА ===
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log('\n' + '='.repeat(50));
   console.log('🎮 ROLES PLAYING GAME SERVER');
   console.log('='.repeat(50));
   console.log(`📍 Сервер запущено на порті: ${PORT}`);
   console.log(`🌐 Локальний URL: http://localhost:${PORT}`);
+  console.log(`🌐 Мережевий URL: http://192.168.0.175:${PORT}`);
   console.log(`🔧 Режим: ${process.env.NODE_ENV || 'development'}`);
   console.log(`⚡ Версія: 1.0.0`);
   console.log('='.repeat(50) + '\n');
+  
+  // Додаткова інформація про мережу
+  const os = require('os');
+  const networkInterfaces = os.networkInterfaces();
+  
+  console.log('🌐 Мережеві адреси для підключення:');
+  Object.keys(networkInterfaces).forEach(interfaceName => {
+    networkInterfaces[interfaceName].forEach(netInterface => {
+      if (netInterface.family === 'IPv4' && !netInterface.internal) {
+        console.log(`   http://${netInterface.address}:${PORT}`);
+      }
+    });
+  });
+  console.log('');
 });
 
 export default server;
