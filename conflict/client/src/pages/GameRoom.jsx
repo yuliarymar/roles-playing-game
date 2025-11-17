@@ -589,13 +589,12 @@ export default function GameRoom() {
           </div>
 
           <div className="roles-info">
-            <h4>🎭 Доступні ролі (10):</h4>
+            <h4>🎭 Доступні ролі (9):</h4>
             <div className="roles-preview">
               <span className="role-preview">🖌️ Підліток-графітіст</span>
               <span className="role-preview">🌟 Друг підлітка</span>
               <span className="role-preview">👩‍🏫 Директор школи</span>
               <span className="role-preview">🖼️ Вчитель мистецтв</span>
-              <span className="role-preview">🏛️ Вчитель історії</span>
               <span className="role-preview">🚔 Поліцейський</span>
               <span className="role-preview">🕊️ Соціальний працівник</span>
               <span className="role-preview">⭐ Мер міста</span>
